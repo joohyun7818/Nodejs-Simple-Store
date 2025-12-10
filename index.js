@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { db, initDB } from "./database.js";
-import { decideVariant, getUIConfig } from "./optimizely.js";
+import { decideVariant, getUIConfig, DEFAULT_COUNTRY } from "./optimizely.js";
 
 const app = express();
 const PORT = 3000;
@@ -46,7 +46,7 @@ app.get("/api/products", (req, res) => {
 
 // [API] 회원가입
 app.post("/api/register", (req, res) => {
-  const { email, name, password, country = 'KR' } = req.body;
+  const { email, name, password, country = DEFAULT_COUNTRY } = req.body;
 
   if (!email || !name || !password) {
     return res.status(400).json({ error: "모든 필드를 입력해주세요." });
@@ -98,7 +98,7 @@ app.post("/api/login", (req, res) => {
       }
       
       // Optimizely decide 수행 (세션 시작 시)
-      const country = row.country || 'KR';
+      const country = row.country || DEFAULT_COUNTRY;
       const decision = decideVariant(email, country);
       const uiConfig = getUIConfig(decision.variant);
       

@@ -1,5 +1,8 @@
 import * as optimizely from "@optimizely/optimizely-sdk";
 
+// 기본 국가 코드 설정
+export const DEFAULT_COUNTRY = 'KR';
+
 /**
  * Optimizely SDK 설정 및 초기화
  * 
@@ -89,7 +92,7 @@ export const initOptimizely = () => {
   try {
     // Static config manager 생성
     const configManager = optimizely.createStaticProjectConfigManager({
-      datafile: JSON.stringify(datafile)
+      datafile: datafile
     });
     
     optimizelyClient = optimizely.createInstance({
