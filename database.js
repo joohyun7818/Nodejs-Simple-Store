@@ -45,7 +45,8 @@ export const initDB = () => {
       CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        password TEXT NOT NULL
+        password TEXT NOT NULL,
+        country TEXT DEFAULT 'KR'
       )
     `);
 

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { db, initDB } from "./database.js";
+import { decideVariant, getUIConfig } from "./optimizely.js";
 
 const app = express();
 const PORT = 3000;
@@ -45,25 +46,36 @@ app.get("/api/products", (req, res) => {
 
 // [API] 회원가입
 app.post("/api/register", (req, res) => {
-  const { email, name, password } = req.body;
+  const { email, name, password, country = 'KR' } = req.body;
 
   if (!email || !name || !password) {
     return res.status(400).json({ error: "모든 필드를 입력해주세요." });
   }
 
   const stmt = db.prepare(
-    "INSERT INTO users (email, name, password) VALUES (?, ?, ?)"
+    "INSERT INTO users (email, name, password, country) VALUES (?, ?, ?, ?)"
   );
 
-  stmt.run(email, name, password, function (err) {
+  stmt.run(email, name, password, country, function (err) {
     if (err) {
       if (err.message.includes("UNIQUE constraint failed")) {
         return res.status(409).json({ error: "이미 존재하는 이메일입니다." });
       }
       return res.status(500).json({ error: err.message });
     }
-    // 회원가입 성공 시, 바로 로그인 처리된 것처럼 사용자 정보 반환
-    res.json({ email, name });
+    
+    // Optimizely decide 수행 (세션 시작 시)
+    const decision = decideVariant(email, country);
+    const uiConfig = getUIConfig(decision.variant);
+    
+    // 회원가입 성공 시, 사용자 정보 + Optimizely variant 정보 반환
+    res.json({ 
+      email, 
+      name, 
+      country,
+      variant: decision.variant,
+      uiConfig: uiConfig
+    });
   });
   stmt.finalize();
 });
@@ -73,7 +85,7 @@ app.post("/api/login", (req, res) => {
   const { email, password } = req.body;
 
   db.get(
-    "SELECT email, name FROM users WHERE email = ? AND password = ?",
+    "SELECT email, name, country FROM users WHERE email = ? AND password = ?",
     [email, password],
     (err, row) => {
       if (err) {
@@ -84,7 +96,17 @@ app.post("/api/login", (req, res) => {
           .status(401)
           .json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." });
       }
-      res.json(row);
+      
+      // Optimizely decide 수행 (세션 시작 시)
+      const country = row.country || 'KR';
+      const decision = decideVariant(email, country);
+      const uiConfig = getUIConfig(decision.variant);
+      
+      res.json({
+        ...row,
+        variant: decision.variant,
+        uiConfig: uiConfig
+      });
     }
   );
 });
