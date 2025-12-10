@@ -7,6 +7,40 @@ import * as optimizely from "@optimizely/optimizely-sdk";
  * 사용자의 국가(country) 속성에 기반한 A/B 테스트를 수행합니다.
  */
 
+// 실험 설정 (중복 방지를 위해 상수로 추출)
+const experimentConfig = {
+  status: "Running",
+  key: "store_ui_experiment",
+  layerId: "layer_1",
+  trafficAllocation: [
+    {
+      entityId: "variation_1",
+      endOfRange: 5000
+    },
+    {
+      entityId: "variation_2",
+      endOfRange: 10000
+    }
+  ],
+  audienceIds: [],
+  variations: [
+    {
+      variables: [],
+      id: "variation_1",
+      key: "control",
+      featureEnabled: true
+    },
+    {
+      variables: [],
+      id: "variation_2",
+      key: "variant_b",
+      featureEnabled: true
+    }
+  ],
+  forcedVariations: {},
+  id: "store_ui_experiment"
+};
+
 // Optimizely SDK 데이터파일 (간단한 예시)
 // 실제 운영 환경에서는 Optimizely 대시보드에서 생성된 SDK Key를 사용하거나
 // 데이터파일 URL을 통해 동적으로 로드해야 합니다.
@@ -26,40 +60,7 @@ const datafile = {
       key: "store_ui_variant"
     }
   ],
-  experiments: [
-    {
-      status: "Running",
-      key: "store_ui_experiment",
-      layerId: "layer_1",
-      trafficAllocation: [
-        {
-          entityId: "variation_1",
-          endOfRange: 5000
-        },
-        {
-          entityId: "variation_2",
-          endOfRange: 10000
-        }
-      ],
-      audienceIds: [],
-      variations: [
-        {
-          variables: [],
-          id: "variation_1",
-          key: "control",
-          featureEnabled: true
-        },
-        {
-          variables: [],
-          id: "variation_2",
-          key: "variant_b",
-          featureEnabled: true
-        }
-      ],
-      forcedVariations: {},
-      id: "store_ui_experiment"
-    }
-  ],
+  experiments: [experimentConfig],
   audiences: [],
   groups: [],
   attributes: [
@@ -72,40 +73,7 @@ const datafile = {
   layers: [
     {
       id: "layer_1",
-      experiments: [
-        {
-          status: "Running",
-          key: "store_ui_experiment",
-          layerId: "layer_1",
-          trafficAllocation: [
-            {
-              entityId: "variation_1",
-              endOfRange: 5000
-            },
-            {
-              entityId: "variation_2",
-              endOfRange: 10000
-            }
-          ],
-          audienceIds: [],
-          variations: [
-            {
-              variables: [],
-              id: "variation_1",
-              key: "control",
-              featureEnabled: true
-            },
-            {
-              variables: [],
-              id: "variation_2",
-              key: "variant_b",
-              featureEnabled: true
-            }
-          ],
-          forcedVariations: {},
-          id: "store_ui_experiment"
-        }
-      ]
+      experiments: [experimentConfig]
     }
   ],
   revision: "1"
