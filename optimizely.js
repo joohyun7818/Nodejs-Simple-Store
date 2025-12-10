@@ -63,7 +63,7 @@ const datafile = {
       key: "store_ui_variant"
     }
   ],
-  experiments: [experimentConfig],
+  experiments: [{ ...experimentConfig }],
   audiences: [],
   groups: [],
   attributes: [
@@ -76,19 +76,24 @@ const datafile = {
   layers: [
     {
       id: "layer_1",
-      experiments: [experimentConfig]
+      experiments: [{ ...experimentConfig }]
     }
   ],
   revision: "1"
 };
 
-// Optimizely 클라이언트 인스턴스 생성
+// Optimizely 클라이언트 인스턴스 (싱글톤)
 let optimizelyClient = null;
 
 /**
  * Optimizely 클라이언트를 초기화합니다.
  */
 export const initOptimizely = () => {
+  // 이미 초기화된 경우 기존 인스턴스 반환
+  if (optimizelyClient) {
+    return optimizelyClient;
+  }
+  
   try {
     // Static config manager 생성
     const configManager = optimizely.createStaticProjectConfigManager({
@@ -109,6 +114,17 @@ export const initOptimizely = () => {
 };
 
 /**
+ * Optimizely 클라이언트 인스턴스를 가져옵니다.
+ * @returns {object|null} Optimizely 클라이언트 인스턴스
+ */
+const getOptimizelyClient = () => {
+  if (!optimizelyClient) {
+    return initOptimizely();
+  }
+  return optimizelyClient;
+};
+
+/**
  * 사용자의 속성을 기반으로 Optimizely decision을 수행합니다.
  * 
  * @param {string} userId - 사용자 ID (이메일 등)
@@ -116,7 +132,9 @@ export const initOptimizely = () => {
  * @returns {object} - decision 결과 및 variation 정보
  */
 export const decideVariant = (userId, country) => {
-  if (!optimizelyClient) {
+  const client = getOptimizelyClient();
+  
+  if (!client) {
     console.warn("Optimizely 클라이언트가 초기화되지 않았습니다.");
     return {
       variant: "control",
@@ -125,7 +143,7 @@ export const decideVariant = (userId, country) => {
   }
 
   try {
-    const user = optimizelyClient.createUserContext(userId, {
+    const user = client.createUserContext(userId, {
       country: country
     });
 
