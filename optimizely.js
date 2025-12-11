@@ -123,7 +123,8 @@ export const initOptimizely = () => {
       // SDK Key가 있으면 우선 사용
       if (OPTIMIZELY_SDK_KEY) {
         pollingOptions.sdkKey = OPTIMIZELY_SDK_KEY;
-        console.log(`   - SDK Key: ${OPTIMIZELY_SDK_KEY}`);
+        const maskedKey = OPTIMIZELY_SDK_KEY.substring(0, 8) + '...' + OPTIMIZELY_SDK_KEY.substring(OPTIMIZELY_SDK_KEY.length - 4);
+        console.log(`   - SDK Key: ${maskedKey}`);
       }
       // 그렇지 않고 Datafile URL이 있으면 사용
       else if (OPTIMIZELY_DATAFILE_URL) {
