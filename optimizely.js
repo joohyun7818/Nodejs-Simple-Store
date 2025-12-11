@@ -123,16 +123,22 @@ export const initOptimizely = () => {
       // SDK Key가 있으면 우선 사용
       if (OPTIMIZELY_SDK_KEY) {
         pollingOptions.sdkKey = OPTIMIZELY_SDK_KEY;
-        // SDK Key 마스킹 (길이가 충분한 경우에만)
+        // SDK Key 마스킹 (일관된 형식으로 표시)
         const maskedKey = OPTIMIZELY_SDK_KEY.length > 12 
           ? OPTIMIZELY_SDK_KEY.substring(0, 8) + '...' + OPTIMIZELY_SDK_KEY.substring(OPTIMIZELY_SDK_KEY.length - 4)
-          : '***';
+          : '***...***';
         console.log(`   - SDK Key: ${maskedKey}`);
       }
       // 그렇지 않고 Datafile URL이 있으면 사용
       else if (OPTIMIZELY_DATAFILE_URL) {
         pollingOptions.datafileUrl = OPTIMIZELY_DATAFILE_URL;
-        console.log(`   - Datafile URL: ${OPTIMIZELY_DATAFILE_URL}`);
+        // URL 마스킹 (도메인만 표시)
+        try {
+          const url = new URL(OPTIMIZELY_DATAFILE_URL);
+          console.log(`   - Datafile URL: ${url.origin}/***`);
+        } catch {
+          console.log(`   - Datafile URL: ***`);
+        }
       }
       
       configManager = optimizely.createPollingProjectConfigManager(pollingOptions);
