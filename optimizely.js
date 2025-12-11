@@ -23,85 +23,6 @@ const HEADER_COLOR_FLAG_KEY = process.env.HEADER_COLOR_FLAG_KEY || "test1";
  * 사용자의 국가(country) 속성에 기반한 A/B 테스트를 수행합니다.
  */
 
-// 실험 설정 (중복 방지를 위해 상수로 추출)
-const experimentConfig = {
-  status: "Running",
-  key: "store_ui_experiment",
-  layerId: "layer_1",
-  trafficAllocation: [
-    {
-      entityId: "variation_1",
-      endOfRange: 5000,
-    },
-    {
-      entityId: "variation_2",
-      endOfRange: 10000,
-    },
-  ],
-  audienceIds: [],
-  variations: [
-    {
-      variables: [],
-      id: "variation_1",
-      key: "v1",
-      featureEnabled: true,
-    },
-    {
-      variables: [],
-      id: "variation_2",
-      key: "v2",
-      featureEnabled: true,
-    },
-  ],
-  forcedVariations: {},
-  id: "store_ui_experiment",
-};
-
-// Optimizely SDK 데이터파일 (간단한 예시)
-// 실제 운영 환경에서는 Optimizely 대시보드에서 생성된 SDK Key를 사용하거나
-// 데이터파일 URL을 통해 동적으로 로드해야 합니다.
-const datafile = {
-  version: "4",
-  rollouts: [],
-  typedAudiences: [],
-  anonymizeIP: false,
-  projectId: "nodejs-simple-store",
-  variables: [],
-  featureFlags: [
-    {
-      experimentIds: ["store_ui_experiment"],
-      rolloutId: "",
-      variables: [],
-      id: "test1",
-      key: "test1",
-    },
-  ],
-  experiments: [{ ...experimentConfig }],
-  audiences: [],
-  groups: [],
-  attributes: [
-    {
-      id: "country",
-      key: "country",
-    },
-  ],
-  accountId: "nodejs-simple-store-account",
-  layers: [
-    {
-      id: "layer_1",
-      experiments: [{ ...experimentConfig }],
-    },
-  ],
-  events: [
-    {
-      experimentIds: ["store_ui_experiment"],
-      id: "order_placed",
-      key: "order_placed",
-    },
-  ],
-  revision: "1",
-};
-
 // Optimizely 클라이언트 인스턴스 (싱글톤)
 let optimizelyClient = null;
 
@@ -140,55 +61,66 @@ export const initOptimizely = () => {
   }
 
   try {
-    let configManager;
-
-    // SDK Key와 Datafile URL이 환경 변수로 제공되면 PollingConfigManager 사용
-    if (OPTIMIZELY_SDK_KEY || OPTIMIZELY_DATAFILE_URL) {
+    // SDK Key 또는 Datafile URL이 필수입니다
+    if (!OPTIMIZELY_SDK_KEY && !OPTIMIZELY_DATAFILE_URL) {
       const envType = isDevelopment ? "development" : "production";
-      console.log(
-        `🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다. (환경: ${envType})`
+      const requiredKeys = isDevelopment 
+        ? "OPTIMIZELY_SDK_KEY_DEV or OPTIMIZELY_DATAFILE_URL_DEV"
+        : "OPTIMIZELY_SDK_KEY or OPTIMIZELY_DATAFILE_URL";
+      
+      console.error(
+        `❌ Optimizely SDK 초기화 실패: 환경 변수가 설정되지 않았습니다.`
       );
-
-      const pollingOptions = {
-        updateInterval: 300000, // 5분마다 업데이트 (밀리초 단위)
-        autoUpdate: true,
-      };
-
-      // SDK Key가 있으면 우선 사용
-      if (OPTIMIZELY_SDK_KEY) {
-        pollingOptions.sdkKey = OPTIMIZELY_SDK_KEY;
-        // SDK Key 마스킹 (일관된 형식으로 표시)
-        const maskedKey =
-          OPTIMIZELY_SDK_KEY.length > 12
-            ? OPTIMIZELY_SDK_KEY.substring(0, 8) +
-              "..." +
-              OPTIMIZELY_SDK_KEY.substring(OPTIMIZELY_SDK_KEY.length - 4)
-            : "***...***";
-        console.log(`   - SDK Key: ${maskedKey}`);
-      }
-      // 그렇지 않고 Datafile URL이 있으면 사용
-      else if (OPTIMIZELY_DATAFILE_URL) {
-        pollingOptions.datafileUrl = OPTIMIZELY_DATAFILE_URL;
-        // URL 마스킹 (도메인만 표시)
-        try {
-          const url = new URL(OPTIMIZELY_DATAFILE_URL);
-          console.log(`   - Datafile URL: ${url.origin}/***`);
-        } catch {
-          console.log(`   - Datafile URL: ***`);
-        }
-      }
-
-      configManager =
-        optimizely.createPollingProjectConfigManager(pollingOptions);
-    } else {
-      // 환경 변수가 없으면 Static config manager 사용 (fallback)
-      console.log(
-        "📋 StaticConfigManager를 사용하여 Optimizely SDK를 초기화합니다."
+      console.error(
+        `   환경: ${envType}`
       );
-      configManager = optimizely.createStaticProjectConfigManager({
-        datafile: datafile,
-      });
+      console.error(
+        `   필요한 환경 변수: ${requiredKeys}`
+      );
+      console.error(
+        `   .env 파일을 생성하고 Optimizely SDK Key 또는 Datafile URL을 설정해주세요.`
+      );
+      
+      // 환경 변수가 없으면 프로세스 종료
+      process.exit(1);
     }
+
+    const envType = isDevelopment ? "development" : "production";
+    console.log(
+      `🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다. (환경: ${envType})`
+    );
+
+    const pollingOptions = {
+      updateInterval: 300000, // 5분마다 업데이트 (밀리초 단위)
+      autoUpdate: true,
+    };
+
+    // SDK Key가 있으면 우선 사용
+    if (OPTIMIZELY_SDK_KEY) {
+      pollingOptions.sdkKey = OPTIMIZELY_SDK_KEY;
+      // SDK Key 마스킹 (일관된 형식으로 표시)
+      const maskedKey =
+        OPTIMIZELY_SDK_KEY.length > 12
+          ? OPTIMIZELY_SDK_KEY.substring(0, 8) +
+            "..." +
+            OPTIMIZELY_SDK_KEY.substring(OPTIMIZELY_SDK_KEY.length - 4)
+          : "***...***";
+      console.log(`   - SDK Key: ${maskedKey}`);
+    }
+    // 그렇지 않고 Datafile URL이 있으면 사용
+    else if (OPTIMIZELY_DATAFILE_URL) {
+      pollingOptions.datafileUrl = OPTIMIZELY_DATAFILE_URL;
+      // URL 마스킹 (도메인만 표시)
+      try {
+        const url = new URL(OPTIMIZELY_DATAFILE_URL);
+        console.log(`   - Datafile URL: ${url.origin}/***`);
+      } catch {
+        console.log(`   - Datafile URL: ***`);
+      }
+    }
+
+    const configManager =
+      optimizely.createPollingProjectConfigManager(pollingOptions);
 
     // Configure event processor explicitly
     // - In development: default to forwarding processor for immediate event dispatch to Optimizely

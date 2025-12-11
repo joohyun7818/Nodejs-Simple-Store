@@ -15,9 +15,11 @@ Optimizely SDK를 사용하여 사용자의 국가(country) 속성을 기반으�
 
 ## 구현 내용
 
-### 1. 환경 변수 설정
+### 1. 환경 변수 설정 (필수)
 
-`.env` 파일을 생성하여 Optimizely SDK 설정을 구성할 수 있습니다:
+애플리케이션을 실행하기 위해서는 반드시 Optimizely SDK Key 또는 Datafile URL을 환경 변수로 설정해야 합니다.
+
+`.env` 파일을 생성하여 Optimizely SDK 설정을 구성하세요:
 
 ```bash
 # Option 1: SDK Key 사용 (권장)
@@ -27,7 +29,7 @@ OPTIMIZELY_SDK_KEY=your_sdk_key_here
 # OPTIMIZELY_DATAFILE_URL=https://cdn.optimizely.com/datafiles/your_datafile_url
 ```
 
-환경 변수가 설정되지 않으면 StaticConfigManager가 사용되며, 설정되면 PollingConfigManager가 자동으로 활성화되어 5분마다 datafile을 업데이트합니다.
+**중요**: SDK Key 또는 Datafile URL이 설정되지 않으면 애플리케이션이 시작되지 않습니다. PollingConfigManager가 사용되어 5분마다 datafile을 자동으로 업데이트합니다.
 
 ### 2. 데이터베이스 스키마 변경
 
@@ -155,21 +157,24 @@ export const DEFAULT_COUNTRY = 'US'; // 미국으로 변경
 
 ### 실험 설정 변경
 
-#### 운영 환경 (PollingConfigManager 사용)
-실제 운영 환경에서는 Optimizely 대시보드에서 실험을 생성하고, 환경 변수를 통해 SDK를 구성:
+#### Optimizely 대시보드 설정 (필수)
+애플리케이션을 실행하려면 Optimizely 대시보드에서 프로젝트를 생성하고 환경 변수를 설정해야 합니다:
 
 1. Optimizely 대시보드에서 프로젝트 생성
 2. SDK Key 또는 Datafile URL 획득
 3. 환경 변수 설정:
 ```bash
+# 운영 환경 (npm run start)
 export OPTIMIZELY_SDK_KEY=your_actual_sdk_key
 # 또는
 export OPTIMIZELY_DATAFILE_URL=https://cdn.optimizely.com/datafiles/your_datafile_url
+
+# 개발 환경 (npm run dev)
+export OPTIMIZELY_SDK_KEY_DEV=your_dev_sdk_key
+# 또는
+export OPTIMIZELY_DATAFILE_URL_DEV=https://cdn.optimizely.com/datafiles/your_dev_datafile_url
 ```
 4. 서버 시작 - PollingConfigManager가 자동으로 활성화되어 5분마다 datafile을 업데이트
-
-#### 개발 환경 (StaticConfigManager 사용)
-환경 변수 없이 서버를 시작하면 StaticConfigManager가 사용되며, 코드에 하드코딩된 datafile로 동작합니다.
 
 ## 로깅
 
@@ -178,19 +183,26 @@ export OPTIMIZELY_DATAFILE_URL=https://cdn.optimizely.com/datafiles/your_datafil
 🎯 User user@example.com (country: KR) => Variant: v1
 ```
 
-서버 시작 시 어떤 ConfigManager가 사용되는지도 확인할 수 있습니다:
+서버 시작 시 PollingConfigManager 사용 여부를 확인할 수 있습니다:
 ```
-🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다.
-# 또는
-📋 StaticConfigManager를 사용하여 Optimizely SDK를 초기화합니다.
+🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다. (환경: development)
+```
+
+환경 변수가 설정되지 않은 경우:
+```
+❌ Optimizely SDK 초기화 실패: 환경 변수가 설정되지 않았습니다.
+   환경: development
+   필요한 환경 변수: OPTIMIZELY_SDK_KEY_DEV or OPTIMIZELY_DATAFILE_URL_DEV
+   .env 파일을 생성하고 Optimizely SDK Key 또는 Datafile URL을 설정해주세요.
 ```
 
 ## 주의사항
 
-1. **환경 변수 관리**:
+1. **환경 변수 관리** (필수):
    - `.env` 파일을 사용하는 경우 `.gitignore`에 포함되어 있는지 확인
    - 실제 SDK Key나 URL을 코드에 직접 하드코딩하지 말 것
    - `.env.example` 파일을 참고하여 환경 변수 설정
+   - **SDK Key 또는 Datafile URL이 없으면 애플리케이션이 시작되지 않습니다**
 
 2. **PollingConfigManager**:
    - 기본 업데이트 간격은 5분 (300,000ms)
