@@ -92,6 +92,13 @@ const datafile = {
       experiments: [{ ...experimentConfig }],
     },
   ],
+  events: [
+    {
+      experimentIds: ["store_ui_experiment"],
+      id: "order_placed",
+      key: "order_placed",
+    },
+  ],
   revision: "1",
 };
 
@@ -196,6 +203,23 @@ export const initOptimizely = () => {
     });
 
     console.log("✅ Optimizely SDK가 초기화되었습니다.");
+
+    // Handle unhandled promise rejections from event dispatching
+    // This prevents the server from crashing when Optimizely servers are unreachable
+    process.on("unhandledRejection", (reason, promise) => {
+      if (
+        reason &&
+        typeof reason === "object" &&
+        "code" in reason &&
+        reason.code === "ENOTFOUND" &&
+        "hostname" in reason &&
+        reason.hostname === "logx.optimizely.com"
+      ) {
+        console.warn(
+          "⚠️ Unable to reach Optimizely event endpoint (network error). Events are being tracked locally but not sent to Optimizely servers."
+        );
+      }
+    });
 
     // Graceful shutdown: ensure queued events are flushed
     if (optimizelyClient && typeof optimizelyClient.close === "function") {
