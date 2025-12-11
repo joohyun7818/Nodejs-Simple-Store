@@ -238,7 +238,7 @@ app.get('/api/orders', (req, res) => {
 
 // [API] 주문 생성 (결제)
 app.post('/api/orders', (req, res) => {
-  const { email } = req.body;
+  const { email, country } = req.body;
   if (!email) return res.status(400).json({ error: '이메일이 필요합니다.' });
 
   // 1. 트랜잭션 처리를 위해 serialize 사용 (SQLite는 기본적으로 단일 파일 락을 사용하므로 순차 실행됨)
@@ -277,6 +277,7 @@ app.post('/api/orders', (req, res) => {
             success: true,
             orderId: newOrderId.toString()
           });
+          
         });
       });
       stmt.finalize();
