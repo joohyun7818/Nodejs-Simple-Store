@@ -14,7 +14,7 @@ const OPTIMIZELY_DATAFILE_URL = isDevelopment
   : process.env.OPTIMIZELY_DATAFILE_URL;
 
 // Decision flag key
-const HEADER_COLOR_FLAG_KEY = "test1";
+const HEADER_COLOR_FLAG_KEY =  process.env.HEADER_COLOR_FLAG_KEY || "test1";
 
 /**
  * Optimizely SDK 설정 및 초기화

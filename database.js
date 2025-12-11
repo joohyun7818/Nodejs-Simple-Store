@@ -50,6 +50,28 @@ export const initDB = () => {
       )
     `);
 
+    // 마이그레이션: 기존 테이블에 country 컬럼이 없으면 추가
+    db.all("PRAGMA table_info(users)", (err, cols) => {
+      if (err) {
+        console.error("PRAGMA table_info(users) 실패:", err.message);
+        return;
+      }
+      const hasCountry = cols && cols.some((c) => c.name === "country");
+      if (!hasCountry) {
+        console.log(
+          "users 테이블에 country 컬럼이 없어 추가합니다 (migration)"
+        );
+        db.run(
+          "ALTER TABLE users ADD COLUMN country TEXT DEFAULT 'KR'",
+          (alterErr) => {
+            if (alterErr)
+              console.error("country 컬럼 추가 실패:", alterErr.message);
+            else console.log("country 컬럼이 추가되었습니다.");
+          }
+        );
+      }
+    });
+
     // 장바구니 테이블
     db.run(`
       CREATE TABLE IF NOT EXISTS cart (
