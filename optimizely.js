@@ -69,15 +69,9 @@ export const initOptimizely = () => {
         : "OPTIMIZELY_SDK_KEY or OPTIMIZELY_DATAFILE_URL";
       
       console.error(
-        `❌ Optimizely SDK 초기화 실패: 환경 변수가 설정되지 않았습니다.`
-      );
-      console.error(
-        `   환경: ${envType}`
-      );
-      console.error(
-        `   필요한 환경 변수: ${requiredKeys}`
-      );
-      console.error(
+        `❌ Optimizely SDK 초기화 실패: 환경 변수가 설정되지 않았습니다.\n` +
+        `   환경: ${envType}\n` +
+        `   필요한 환경 변수: ${requiredKeys}\n` +
         `   .env 파일을 생성하고 Optimizely SDK Key 또는 Datafile URL을 설정해주세요.`
       );
       
