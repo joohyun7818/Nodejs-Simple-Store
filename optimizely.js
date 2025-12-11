@@ -105,6 +105,31 @@ const datafile = {
 // Optimizely 클라이언트 인스턴스 (싱글톤)
 let optimizelyClient = null;
 
+// Flag to track if unhandled rejection handler is registered
+let isRejectionHandlerRegistered = false;
+
+// Register global handler for unhandled promise rejections from event dispatching
+// This prevents the server from crashing when Optimizely servers are unreachable
+const registerRejectionHandler = () => {
+  if (!isRejectionHandlerRegistered) {
+    process.on("unhandledRejection", (reason, _promise) => {
+      if (
+        reason &&
+        typeof reason === "object" &&
+        "code" in reason &&
+        reason.code === "ENOTFOUND" &&
+        "hostname" in reason &&
+        reason.hostname === "logx.optimizely.com"
+      ) {
+        console.warn(
+          "⚠️ Unable to reach Optimizely event endpoint (network error). Events are being tracked locally but not sent to Optimizely servers."
+        );
+      }
+    });
+    isRejectionHandlerRegistered = true;
+  }
+};
+
 /**
  * Optimizely 클라이언트를 초기화합니다.
  */
@@ -204,22 +229,8 @@ export const initOptimizely = () => {
 
     console.log("✅ Optimizely SDK가 초기화되었습니다.");
 
-    // Handle unhandled promise rejections from event dispatching
-    // This prevents the server from crashing when Optimizely servers are unreachable
-    process.on("unhandledRejection", (reason, promise) => {
-      if (
-        reason &&
-        typeof reason === "object" &&
-        "code" in reason &&
-        reason.code === "ENOTFOUND" &&
-        "hostname" in reason &&
-        reason.hostname === "logx.optimizely.com"
-      ) {
-        console.warn(
-          "⚠️ Unable to reach Optimizely event endpoint (network error). Events are being tracked locally but not sent to Optimizely servers."
-        );
-      }
-    });
+    // Register rejection handler (only once at module level)
+    registerRejectionHandler();
 
     // Graceful shutdown: ensure queued events are flushed
     if (optimizelyClient && typeof optimizelyClient.close === "function") {
