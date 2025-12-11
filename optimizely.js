@@ -4,8 +4,14 @@ import * as optimizely from "@optimizely/optimizely-sdk";
 export const DEFAULT_COUNTRY = 'KR';
 
 // 환경 변수에서 Optimizely SDK 설정 가져오기
-const OPTIMIZELY_SDK_KEY = process.env.OPTIMIZELY_SDK_KEY;
-const OPTIMIZELY_DATAFILE_URL = process.env.OPTIMIZELY_DATAFILE_URL;
+// NODE_ENV에 따라 적절한 키 선택 (development 환경에서는 _DEV 접미사 키 사용)
+const isDevelopment = process.env.NODE_ENV === 'development';
+const OPTIMIZELY_SDK_KEY = isDevelopment 
+  ? process.env.OPTIMIZELY_SDK_KEY_DEV 
+  : process.env.OPTIMIZELY_SDK_KEY;
+const OPTIMIZELY_DATAFILE_URL = isDevelopment 
+  ? process.env.OPTIMIZELY_DATAFILE_URL_DEV 
+  : process.env.OPTIMIZELY_DATAFILE_URL;
 
 // Decision flag key
 const HEADER_COLOR_FLAG_KEY = "test1";
@@ -106,7 +112,8 @@ export const initOptimizely = () => {
     
     // SDK Key와 Datafile URL이 환경 변수로 제공되면 PollingConfigManager 사용
     if (OPTIMIZELY_SDK_KEY || OPTIMIZELY_DATAFILE_URL) {
-      console.log("🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다.");
+      const envType = isDevelopment ? 'development' : 'production';
+      console.log(`🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다. (환경: ${envType})`);
       
       const pollingOptions = {
         updateInterval: 300000, // 5분마다 업데이트 (밀리초 단위)
@@ -116,10 +123,22 @@ export const initOptimizely = () => {
       // SDK Key가 있으면 우선 사용
       if (OPTIMIZELY_SDK_KEY) {
         pollingOptions.sdkKey = OPTIMIZELY_SDK_KEY;
+        // SDK Key 마스킹 (일관된 형식으로 표시)
+        const maskedKey = OPTIMIZELY_SDK_KEY.length > 12 
+          ? OPTIMIZELY_SDK_KEY.substring(0, 8) + '...' + OPTIMIZELY_SDK_KEY.substring(OPTIMIZELY_SDK_KEY.length - 4)
+          : '***...***';
+        console.log(`   - SDK Key: ${maskedKey}`);
       }
       // 그렇지 않고 Datafile URL이 있으면 사용
       else if (OPTIMIZELY_DATAFILE_URL) {
         pollingOptions.datafileUrl = OPTIMIZELY_DATAFILE_URL;
+        // URL 마스킹 (도메인만 표시)
+        try {
+          const url = new URL(OPTIMIZELY_DATAFILE_URL);
+          console.log(`   - Datafile URL: ${url.origin}/***`);
+        } catch {
+          console.log(`   - Datafile URL: ***`);
+        }
       }
       
       configManager = optimizely.createPollingProjectConfigManager(pollingOptions);
