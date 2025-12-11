@@ -244,6 +244,7 @@ const getOptimizelyClient = () => {
  */
 export const trackOrderConversion = (userId, country) => {
   const client = getOptimizelyClient();
+  
   if (!client) {
     console.warn("Optimizely 클라이언트가 초기화되지 않았습니다.");
     return;
@@ -254,7 +255,7 @@ export const trackOrderConversion = (userId, country) => {
       country: country,
     });
 
-    user.track("order_placed");
+    user.trackEvent("order_placed");
 
     console.log(`✅ Order conversion tracked for user ${userId}`);
   } catch (error) {

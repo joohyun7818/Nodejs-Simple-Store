@@ -247,7 +247,8 @@ app.get("/api/orders", (req, res) => {
 
 // [API] 주문 생성 (결제)
 app.post("/api/orders", (req, res) => {
-  const { email, country } = req.body;
+  const { email } = req.body;
+  const country = DEFAULT_COUNTRY;
   if (!email) return res.status(400).json({ error: "이메일이 필요합니다." });
 
   // 1. 트랜잭션 처리를 위해 serialize 사용 (SQLite는 기본적으로 단일 파일 락을 사용하므로 순차 실행됨)
@@ -287,12 +288,14 @@ app.post("/api/orders", (req, res) => {
         db.run("DELETE FROM cart WHERE user_email = ?", [email], (err) => {
           if (err) console.error("장바구니 비우기 실패", err);
 
-          // 1-5. 성공 응답
+          // 1-5. Optimizely 전환 추적 (주문 성공 후)
+          trackOrderConversion(email, country);
+
+          // 1-6. 성공 응답
           res.json({
             success: true,
             orderId: newOrderId.toString(),
           });
-          trackOrderConversion(email, country);
         });
       });
       stmt.finalize();
