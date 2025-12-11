@@ -2,7 +2,12 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { db, initDB } from "./database.js";
-import { decideVariant, getUIConfig, DEFAULT_COUNTRY } from "./optimizely.js";
+import {
+  decideVariant,
+  getUIConfig,
+  DEFAULT_COUNTRY,
+  trackOrderConversion,
+} from "./optimizely.js";
 
 const app = express();
 const PORT = 3000;
@@ -64,18 +69,18 @@ app.post("/api/register", (req, res) => {
       }
       return res.status(500).json({ error: err.message });
     }
-    
+
     // Optimizely decide 수행 (세션 시작 시)
     const decision = decideVariant(email, country);
     const uiConfig = getUIConfig(decision.variant);
-    
+
     // 회원가입 성공 시, 사용자 정보 + Optimizely variant 정보 반환
-    res.json({ 
-      email, 
-      name, 
+    res.json({
+      email,
+      name,
       country,
       variant: decision.variant,
-      uiConfig: uiConfig
+      uiConfig: uiConfig,
     });
   });
   stmt.finalize();
@@ -97,16 +102,16 @@ app.post("/api/login", (req, res) => {
           .status(401)
           .json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." });
       }
-      
+
       // Optimizely decide 수행 (세션 시작 시)
       const country = row.country || DEFAULT_COUNTRY;
       const decision = decideVariant(email, country);
       const uiConfig = getUIConfig(decision.variant);
-      
+
       res.json({
         ...row,
         variant: decision.variant,
-        uiConfig: uiConfig
+        uiConfig: uiConfig,
       });
     }
   );
@@ -218,28 +223,32 @@ app.delete("/api/cart/:email", (req, res) => {
 });
 
 // [API] 주문 내역 조회
-app.get('/api/orders', (req, res) => {
+app.get("/api/orders", (req, res) => {
   const { email } = req.query;
-  if (!email) return res.status(400).json({ error: '이메일이 필요합니다.' });
+  if (!email) return res.status(400).json({ error: "이메일이 필요합니다." });
 
-  db.all("SELECT * FROM orders WHERE user_email = ? ORDER BY date DESC", [email], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    
-    // DB에 텍스트로 저장된 items(JSON)를 다시 객체로 변환하여 응답
-    const orders = rows.map(row => ({
-      ...row,
-      id: row.id.toString(), // ID를 문자열로 변환
-      items: JSON.parse(row.items)
-    }));
-    
-    res.json(orders);
-  });
+  db.all(
+    "SELECT * FROM orders WHERE user_email = ? ORDER BY date DESC",
+    [email],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      // DB에 텍스트로 저장된 items(JSON)를 다시 객체로 변환하여 응답
+      const orders = rows.map((row) => ({
+        ...row,
+        id: row.id.toString(), // ID를 문자열로 변환
+        items: JSON.parse(row.items),
+      }));
+
+      res.json(orders);
+    }
+  );
 });
 
 // [API] 주문 생성 (결제)
-app.post('/api/orders', (req, res) => {
+app.post("/api/orders", (req, res) => {
   const { email, country } = req.body;
-  if (!email) return res.status(400).json({ error: '이메일이 필요합니다.' });
+  if (!email) return res.status(400).json({ error: "이메일이 필요합니다." });
 
   // 1. 트랜잭션 처리를 위해 serialize 사용 (SQLite는 기본적으로 단일 파일 락을 사용하므로 순차 실행됨)
   db.serialize(() => {
@@ -252,32 +261,38 @@ app.post('/api/orders', (req, res) => {
     `;
 
     db.all(queryCart, [email], (err, cartItems) => {
-      if (err) return res.status(500).json({ error: '장바구니 조회 실패' });
-      if (cartItems.length === 0) return res.status(400).json({ error: '장바구니가 비어있습니다.' });
+      if (err) return res.status(500).json({ error: "장바구니 조회 실패" });
+      if (cartItems.length === 0)
+        return res.status(400).json({ error: "장바구니가 비어있습니다." });
 
       // 1-2. 총 결제 금액 계산 및 데이터 준비
-      const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const total = cartItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
       const itemsJson = JSON.stringify(cartItems); // 주문 당시의 상품 정보를 스냅샷으로 저장
       const date = new Date().toISOString();
-      const status = 'processing';
+      const status = "processing";
 
       // 1-3. 주문 테이블에 추가
-      const stmt = db.prepare("INSERT INTO orders (user_email, date, total, status, items) VALUES (?, ?, ?, ?, ?)");
-      stmt.run(email, date, total, status, itemsJson, function(err) {
-        if (err) return res.status(500).json({ error: '주문 생성 실패' });
-        
+      const stmt = db.prepare(
+        "INSERT INTO orders (user_email, date, total, status, items) VALUES (?, ?, ?, ?, ?)"
+      );
+      stmt.run(email, date, total, status, itemsJson, function (err) {
+        if (err) return res.status(500).json({ error: "주문 생성 실패" });
+
         const newOrderId = this.lastID; // 생성된 주문 ID
 
         // 1-4. 장바구니 비우기
         db.run("DELETE FROM cart WHERE user_email = ?", [email], (err) => {
-          if (err) console.error('장바구니 비우기 실패', err);
-          
+          if (err) console.error("장바구니 비우기 실패", err);
+
           // 1-5. 성공 응답
           res.json({
             success: true,
-            orderId: newOrderId.toString()
+            orderId: newOrderId.toString(),
           });
-          
+          trackOrderConversion(email, country);
         });
       });
       stmt.finalize();
