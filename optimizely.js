@@ -3,6 +3,13 @@ import * as optimizely from "@optimizely/optimizely-sdk";
 // 기본 국가 코드 설정
 export const DEFAULT_COUNTRY = 'KR';
 
+// 환경 변수에서 Optimizely SDK 설정 가져오기
+const OPTIMIZELY_SDK_KEY = process.env.OPTIMIZELY_SDK_KEY;
+const OPTIMIZELY_DATAFILE_URL = process.env.OPTIMIZELY_DATAFILE_URL;
+
+// Decision flag key
+const HEADER_COLOR_FLAG_KEY = "test1";
+
 /**
  * Optimizely SDK 설정 및 초기화
  * 
@@ -30,13 +37,13 @@ const experimentConfig = {
     {
       variables: [],
       id: "variation_1",
-      key: "control",
+      key: "v1",
       featureEnabled: true
     },
     {
       variables: [],
       id: "variation_2",
-      key: "variant_b",
+      key: "v2",
       featureEnabled: true
     }
   ],
@@ -59,8 +66,8 @@ const datafile = {
       experimentIds: ["store_ui_experiment"],
       rolloutId: "",
       variables: [],
-      id: "store_ui_variant",
-      key: "store_ui_variant"
+      id: "test1",
+      key: "test1"
     }
   ],
   experiments: [{ ...experimentConfig }],
@@ -95,10 +102,34 @@ export const initOptimizely = () => {
   }
   
   try {
-    // Static config manager 생성
-    const configManager = optimizely.createStaticProjectConfigManager({
-      datafile: datafile
-    });
+    let configManager;
+    
+    // SDK Key와 Datafile URL이 환경 변수로 제공되면 PollingConfigManager 사용
+    if (OPTIMIZELY_SDK_KEY || OPTIMIZELY_DATAFILE_URL) {
+      console.log("🔄 PollingConfigManager를 사용하여 Optimizely SDK를 초기화합니다.");
+      
+      const pollingOptions = {
+        updateInterval: 300000, // 5분마다 업데이트 (밀리초 단위)
+        autoUpdate: true
+      };
+      
+      // SDK Key가 있으면 우선 사용
+      if (OPTIMIZELY_SDK_KEY) {
+        pollingOptions.sdkKey = OPTIMIZELY_SDK_KEY;
+      }
+      // 그렇지 않고 Datafile URL이 있으면 사용
+      else if (OPTIMIZELY_DATAFILE_URL) {
+        pollingOptions.datafileUrl = OPTIMIZELY_DATAFILE_URL;
+      }
+      
+      configManager = optimizely.createPollingProjectConfigManager(pollingOptions);
+    } else {
+      // 환경 변수가 없으면 Static config manager 사용 (fallback)
+      console.log("📋 StaticConfigManager를 사용하여 Optimizely SDK를 초기화합니다.");
+      configManager = optimizely.createStaticProjectConfigManager({
+        datafile: datafile
+      });
+    }
     
     optimizelyClient = optimizely.createInstance({
       projectConfigManager: configManager
@@ -137,7 +168,7 @@ export const decideVariant = (userId, country) => {
   if (!client) {
     console.warn("Optimizely 클라이언트가 초기화되지 않았습니다.");
     return {
-      variant: "control",
+      variant: "v1",
       enabled: true
     };
   }
@@ -147,12 +178,12 @@ export const decideVariant = (userId, country) => {
       country: country
     });
 
-    const decision = user.decide("store_ui_variant");
+    const decision = user.decide(HEADER_COLOR_FLAG_KEY);
 
     console.log(`🎯 User ${userId} (country: ${country}) => Variant: ${decision.variationKey}`);
 
     return {
-      variant: decision.variationKey || "control",
+      variant: decision.variationKey || "v1",
       enabled: decision.enabled,
       flagKey: decision.flagKey,
       ruleKey: decision.ruleKey,
@@ -161,7 +192,7 @@ export const decideVariant = (userId, country) => {
   } catch (error) {
     console.error("❌ Optimizely decide 오류:", error.message);
     return {
-      variant: "control",
+      variant: "v1",
       enabled: true
     };
   }
@@ -170,19 +201,19 @@ export const decideVariant = (userId, country) => {
 /**
  * Variant에 따른 UI 설정을 반환합니다.
  * 
- * @param {string} variant - 'control' 또는 'variant_b'
+ * @param {string} variant - 'v1' 또는 'v2'
  * @returns {object} - UI 커스터마이제이션 설정
  */
 export const getUIConfig = (variant) => {
   const configs = {
-    control: {
+    v1: {
       theme: "default",
       primaryColor: "#007bff",
       showDiscount: false,
       featuredCategories: ["전자제품", "의류", "도서"],
       headerMessage: "AI Store에 오신 것을 환영합니다!"
     },
-    variant_b: {
+    v2: {
       theme: "modern",
       primaryColor: "#28a745",
       showDiscount: true,
@@ -191,7 +222,7 @@ export const getUIConfig = (variant) => {
     }
   };
 
-  return configs[variant] || configs.control;
+  return configs[variant] || configs.v1;
 };
 
 // 초기화 (모듈 로드 시 자동 실행)
