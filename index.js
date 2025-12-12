@@ -251,6 +251,10 @@ app.post("/api/orders", (req, res) => {
   const country = DEFAULT_COUNTRY;
   if (!email) return res.status(400).json({ error: "이메일이 필요합니다." });
 
+  console.log(
+    `[orders] create order requested: email=${email}, country=${country}`
+  );
+
   // 1. 트랜잭션 처리를 위해 serialize 사용 (SQLite는 기본적으로 단일 파일 락을 사용하므로 순차 실행됨)
   db.serialize(() => {
     // 1-1. 현재 장바구니 목록 조회 (상품 정보 조인)
@@ -284,21 +288,34 @@ app.post("/api/orders", (req, res) => {
 
         const newOrderId = this.lastID; // 생성된 주문 ID
 
-        // 1-4. 장바구니 비우기
-        db.run("DELETE FROM cart WHERE user_email = ?", [email], (err) => {
-          if (err) console.error("장바구니 비우기 실패", err);
+        // 1-5. Optimizely 전환 추적 (주문 성공 후) - best effort
+        console.log(`[orders] calling trackOrderConversion: email=${email}`);
 
-          // 1-5. Optimizely 전환 추적 (주문 성공 후)
-          trackOrderConversion(email, country);
+        Promise.resolve(trackOrderConversion(email, country))
+          .then((ok) => {
+            console.log(`[orders] trackOrderConversion resolved: ok=${ok}`);
+          })
+          .catch((err) => {
+            console.error(
+              "[orders] trackOrderConversion rejected:",
+              err?.message || err
+            );
+          })
+          .finally(() => {
+            // 1-4. 장바구니 비우기
+            db.run("DELETE FROM cart WHERE user_email = ?", [email], (err) => {
+              if (err) console.error("장바구니 비우기 실패", err);
 
-          // 1-6. 성공 응답
-          res.json({
-            success: true,
-            orderId: newOrderId.toString(),
+              // 1-6. 성공 응답
+              res.json({
+                success: true,
+                orderId: newOrderId.toString(),
+              });
+            });
           });
-        });
+
+        stmt.finalize();
       });
-      stmt.finalize();
     });
   });
 });

@@ -64,17 +64,17 @@ export const initOptimizely = () => {
     // SDK Key 또는 Datafile URL이 필수입니다
     if (!OPTIMIZELY_SDK_KEY && !OPTIMIZELY_DATAFILE_URL) {
       const envType = isDevelopment ? "development" : "production";
-      const requiredKeys = isDevelopment 
+      const requiredKeys = isDevelopment
         ? "OPTIMIZELY_SDK_KEY_DEV or OPTIMIZELY_DATAFILE_URL_DEV"
         : "OPTIMIZELY_SDK_KEY or OPTIMIZELY_DATAFILE_URL";
-      
+
       console.error(
         `❌ Optimizely SDK 초기화 실패: 환경 변수가 설정되지 않았습니다.\n` +
-        `   환경: ${envType}\n` +
-        `   필요한 환경 변수: ${requiredKeys}\n` +
-        `   .env 파일을 생성하고 Optimizely SDK Key 또는 Datafile URL을 설정해주세요.`
+          `   환경: ${envType}\n` +
+          `   필요한 환경 변수: ${requiredKeys}\n` +
+          `   .env 파일을 생성하고 Optimizely SDK Key 또는 Datafile URL을 설정해주세요.`
       );
-      
+
       // 환경 변수가 없으면 프로세스 종료
       process.exit(1);
     }
@@ -203,24 +203,33 @@ const getOptimizelyClient = () => {
  * @param {string} userId - 사용자 ID (이메일 등)
  * @param {string} country - 사용자의 국가 코드 (예: 'KR', 'US', 'JP')
  */
-export const trackOrderConversion = (userId, country) => {
+export const trackOrderConversion = async (userId, country) => {
+
   const client = getOptimizelyClient();
-  
+
   if (!client) {
-    console.warn("Optimizely 클라이언트가 초기화되지 않았습니다.");
-    return;
+    console.warn(
+      "[optimizely] client not initialized; cannot track conversion event"
+    );
+    return false;
   }
 
   try {
+    // 사용자 컨텍스트 생성 (속성 포함)
     const user = client.createUserContext(userId, {
       country: country,
     });
 
     user.trackEvent("order_placed");
 
-    console.log(`✅ Order conversion tracked for user ${userId}`);
+    console.log(
+      `[optimizely] order_placed enqueued for userId=${userId} (processor will dispatch async)`
+    );
+
+    return true;
   } catch (error) {
-    console.error("❌ Optimizely track 오류:", error.message);
+    console.error("[optimizely] track error:", error?.message || error);
+    return false;
   }
 };
 
