@@ -1,6 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { db, initDB } from "./database.js";
 import {
   decideVariant,
@@ -10,10 +13,23 @@ import {
 } from "./optimizely.js";
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 미들웨어 설정
-app.use(cors()); // 모든 도메인에서의 요청 허용 (실제 배포시는 특정 도메인만 허용 권장)
+// 배포 시에는 CORS_ORIGIN을 고정 도메인으로 제한 권장.
+// 같은 도메인에서 프론트/서버를 함께 서빙하면(권장) 브라우저 CORS가 필요 없습니다.
+const corsOrigin = process.env.CORS_ORIGIN;
+app.use(
+  corsOrigin
+    ? cors({
+        origin: corsOrigin.split(",").map((s) => s.trim()),
+        credentials: true,
+      })
+    : cors()
+);
 app.use(express.json());
 
 // 서버 시작 시 DB 테이블 확인
@@ -234,11 +250,27 @@ app.get("/api/orders", (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
 
       // DB에 텍스트로 저장된 items(JSON)를 다시 객체로 변환하여 응답
-      const orders = rows.map((row) => ({
-        ...row,
-        id: row.id.toString(), // ID를 문자열로 변환
-        items: JSON.parse(row.items),
-      }));
+      const orders = rows.map((row) => {
+        const rawItems = row.items ?? row.items_json;
+        let parsedItems = [];
+        if (typeof rawItems === "string" && rawItems.length > 0) {
+          try {
+            parsedItems = JSON.parse(rawItems);
+          } catch (parseErr) {
+            console.error(
+              "[orders] items JSON parse failed:",
+              parseErr?.message || parseErr
+            );
+            parsedItems = [];
+          }
+        }
+
+        return {
+          ...row,
+          id: row.id.toString(),
+          items: parsedItems,
+        };
+      });
 
       res.json(orders);
     }
@@ -321,6 +353,27 @@ app.post("/api/orders", (req, res) => {
 });
 
 // 서버 실행
+// (선택) 프로덕션에서 같은 도메인으로 프론트까지 함께 띄우고 싶으면:
+// 1) React-Simple-Store에서 npm run build
+// 2) NODE_ENV=production 으로 서버 실행
+if (process.env.NODE_ENV === "production") {
+  const distPath = path.resolve(__dirname, "../React-Simple-Store/dist");
+  const indexHtmlPath = path.join(distPath, "index.html");
+
+  if (fs.existsSync(indexHtmlPath)) {
+    app.use(express.static(distPath));
+    // API가 아닌 모든 경로는 SPA 엔트리로 fallback
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      res.sendFile(indexHtmlPath);
+    });
+  } else {
+    console.warn(
+      "[frontend] dist/index.html not found. Build React-Simple-Store before serving frontend."
+    );
+  }
+}
+
 app.listen(PORT, () => {
   console.log(
     `🚀 서버가 http://localhost:${PORT} 에서 정상적으로 실행 중입니다.`
